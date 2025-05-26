@@ -1,5 +1,7 @@
 # Other
 .vscode
+.test.cpp
+macros
 
 # Prerequisites
 *.d
