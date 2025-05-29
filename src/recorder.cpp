@@ -9,12 +9,7 @@
 #include <vector>
 #include <windows.h>
 #include <xinput.h>
-#pragma comment(lib, "Xinput.lib")
-
-struct timed_input {
-		XINPUT_GAMEPAD state;
-		std::chrono::milliseconds time_delta;
-};
+#include "structs_and_consts.hpp"
 
 void start_recording() {
 	XINPUT_STATE state{};
@@ -22,17 +17,28 @@ void start_recording() {
 	std::chrono::time_point next_frame = std::chrono::steady_clock::now();
 	std::chrono::time_point last_time = std::chrono::steady_clock::now();
 	DWORD last_packet_number = 0;
+    WORD last_buttons = 0xffff;
 
 	while (true) {
 		if (XInputGetState(0, &state) == ERROR_SUCCESS) {
 			if (state.dwPacketNumber != last_packet_number) {
+				last_packet_number = state.dwPacketNumber;
+                // Dead zones
+                bool left_dead = false;
+                bool right_dead = false;
+                bool was_hit = state.Gamepad.wButtons ^ last_buttons != 0;
+                bool was_triggers = state.Gamepad.bLeftTrigger != 0 or state.Gamepad.bRightTrigger != 0;
+                if (abs(state.Gamepad.sThumbLX) < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE and abs(state.Gamepad.sThumbLY) < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) left_dead = true;
+                if (abs(state.Gamepad.sThumbRX) < XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE and abs(state.Gamepad.sThumbRY) < XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE) right_dead = true;
+                if (left_dead and right_dead and !was_hit and !was_triggers) continue;
+                // ---------
                 std::chrono::time_point now = std::chrono::steady_clock::now();
 				std::chrono::milliseconds delta =
                 std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time);
 				states.push_back({state.Gamepad, delta});
                 std::cout << std::format("Change state. {} since last change", delta) << std::endl;
-				last_packet_number = state.dwPacketNumber;
 				last_time = now;
+                last_buttons = state.Gamepad.wButtons;
 			}
 		}
 		else exit(1);
@@ -41,14 +47,13 @@ void start_recording() {
 		std::this_thread::sleep_until(next_frame);
 
 		if (input_system::get_pressed_key() == KEYS::RECORD_KEY) {
+            Beep(1000, 100);
             save_to_file(states);
             break;
         }
 	}
 }
 
-namespace fs = std::filesystem;
-constexpr std::string FOLDER_NAME = "macros";
 void save_to_file(const std::vector<timed_input>& data) {
 	std::cout << "Enter macro name: ";
 	std::string filename;

@@ -2,32 +2,32 @@
 #include "menu.hpp"
 #include "player.hpp"
 #include "recorder.hpp"
+#include "structs_and_consts.hpp"
 #include <cstdlib>
+#include <filesystem>
+#include <iostream>
 #include <windows.h>
 #pragma comment(lib, "Xinput.lib")
 
 int main() {
-    STAGES current_stage = STAGES::MAIN_MENU;
-    show_main_menu();
+	STAGES current_stage = STAGES::MAIN_MENU;
 	while (true) {
-		KEYS key = input_system::get_pressed_key();
-		switch (key) {
-			case KEYS::RECORD_KEY:
-                if (current_stage == STAGES::MAIN_MENU) {
-                    show_recording_menu();
-                    current_stage = STAGES::RECORDING_MENU;
-                }
-                else if (current_stage == STAGES::RECORDING_MENU) {
-                    Beep(1000, 100);
-                    start_recording();
-                    Beep(1000, 100);
-                    show_main_menu();
-                }
+		show_menu(current_stage);
+		std::string filename;
+		switch (current_stage) {
+			case STAGES::MAIN_MENU:
+				current_stage = handle_main_menu_input();
 				break;
-            case KEYS::EXIT_KEY:
-                exit(0);
-			default:
+			case STAGES::RECORDING_MENU:
+				current_stage = handle_recording_menu_input();
 				break;
+			case STAGES::PLAYING_MENU:
+				current_stage = handle_playing_menu_input();
+				break;
+			case STAGES::RECORDING_PROCESS:
+				//
+			case STAGES::QUIT_PROCESS:
+				exit(0);
 		}
 	}
 }
