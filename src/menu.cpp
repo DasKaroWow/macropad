@@ -6,6 +6,7 @@
 #include <iostream>
 #include <string>
 
+// Get list of macros in "macros" folder
 std::vector<std::string> get_macros() {
 	if (!fs::exists(FOLDER_NAME)) {
 		try {
@@ -25,6 +26,7 @@ std::vector<std::string> get_macros() {
     return macros;
 }
 
+// Show menu for different stages
 void show_menu(STAGES current_stage) {
 	system("cls");
 	switch (current_stage) {
@@ -50,6 +52,7 @@ void show_menu(STAGES current_stage) {
 	}
 }
 
+// Obvious i guess..
 STAGES handle_main_menu_input() {
 	while (true) {
 		KEYS key = input_system::get_pressed_key();
@@ -77,5 +80,5 @@ STAGES handle_recording_menu_input() {
 }
 
 STAGES handle_playing_menu_input() {
-	return STAGES::QUIT_PROCESS;
+    return STAGES::QUIT_PROCESS;
 }

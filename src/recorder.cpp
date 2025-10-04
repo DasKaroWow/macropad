@@ -1,15 +1,21 @@
 #include "recorder.hpp"
 #include "input.hpp"
+#include "structs_and_consts.hpp"
 #include <chrono>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
+#include <optional>
 #include <string>
 #include <thread>
 #include <vector>
 #include <windows.h>
 #include <xinput.h>
-#include "structs_and_consts.hpp"
+
+#define XINPUT_GAMEPAD_LEFT_TRIGGER_DEADZONE 5
+#define XINPUT_GAMEPAD_RIGHT_TRIGGER_DEADZONE 5
+constexpr std::chrono::milliseconds FRAME_TIME =
+	std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::seconds(1)) / 144;
 
 void start_recording() {
 	XINPUT_STATE state{};
@@ -17,40 +23,45 @@ void start_recording() {
 	std::chrono::time_point next_frame = std::chrono::steady_clock::now();
 	std::chrono::time_point last_time = std::chrono::steady_clock::now();
 	DWORD last_packet_number = 0;
-    WORD last_buttons = 0xffff;
+	WORD last_buttons = 0xffff;
 
 	while (true) {
 		if (XInputGetState(0, &state) == ERROR_SUCCESS) {
 			if (state.dwPacketNumber != last_packet_number) {
 				last_packet_number = state.dwPacketNumber;
-                // Dead zones
-                bool left_dead = false;
-                bool right_dead = false;
-                bool was_hit = state.Gamepad.wButtons ^ last_buttons != 0;
-                bool was_triggers = state.Gamepad.bLeftTrigger != 0 or state.Gamepad.bRightTrigger != 0;
-                if (abs(state.Gamepad.sThumbLX) < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE and abs(state.Gamepad.sThumbLY) < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE) left_dead = true;
-                if (abs(state.Gamepad.sThumbRX) < XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE and abs(state.Gamepad.sThumbRY) < XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE) right_dead = true;
-                if (left_dead and right_dead and !was_hit and !was_triggers) continue;
-                // ---------
-                std::chrono::time_point now = std::chrono::steady_clock::now();
+				// Dead zones
+				bool left_dead = false;
+				bool right_dead = false;
+				bool was_hit = state.Gamepad.wButtons ^ last_buttons != 0;
+				bool was_triggers = state.Gamepad.bLeftTrigger >= XINPUT_GAMEPAD_LEFT_TRIGGER_DEADZONE or
+					state.Gamepad.bRightTrigger >= XINPUT_GAMEPAD_RIGHT_TRIGGER_DEADZONE;
+				if (abs(state.Gamepad.sThumbLX) < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE and
+					abs(state.Gamepad.sThumbLY) < XINPUT_GAMEPAD_LEFT_THUMB_DEADZONE)
+					left_dead = true;
+				if (abs(state.Gamepad.sThumbRX) < XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE and
+					abs(state.Gamepad.sThumbRY) < XINPUT_GAMEPAD_RIGHT_THUMB_DEADZONE)
+					right_dead = true;
+				if (left_dead and right_dead and !was_hit and !was_triggers) continue;
+				// ---------
+				std::chrono::time_point now = std::chrono::steady_clock::now();
 				std::chrono::milliseconds delta =
-                std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time);
+					std::chrono::duration_cast<std::chrono::milliseconds>(now - last_time);
 				states.push_back({state.Gamepad, delta});
-                std::cout << std::format("Change state. {} since last change", delta) << std::endl;
+				std::cout << std::format("Change state. {} since last change", delta) << std::endl;
 				last_time = now;
-                last_buttons = state.Gamepad.wButtons;
+				last_buttons = state.Gamepad.wButtons;
 			}
 		}
-		else exit(1);
+		else throw "Error while reading gamepad input";
 
 		next_frame += FRAME_TIME;
 		std::this_thread::sleep_until(next_frame);
 
 		if (input_system::get_pressed_key() == KEYS::RECORD_KEY) {
-            Beep(1000, 100);
-            save_to_file(states);
-            break;
-        }
+			Beep(1'000, 100);
+			save_to_file(states);
+			break;
+		}
 	}
 }
 
@@ -93,6 +104,6 @@ void save_to_file(const std::vector<timed_input>& data) {
 		exit(1);
 	}
 
-    out_file.close();
-    std::cout << "Macro saved in: " << file_path << std::endl;
+	out_file.close();
+	std::cout << "Macro saved in: " << file_path << std::endl;
 }

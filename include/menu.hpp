@@ -11,8 +11,9 @@ enum class STAGES {
 	MAIN_MENU,
 	RECORDING_MENU,
 	PLAYING_MENU,
+	QUIT_PROCESS,
 	RECORDING_PROCESS,
-	QUIT_PROCESS
+    PLAYING_PROCESS,
 };
 
 std::vector<std::string> get_macros();
